@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<style media="screen" type="text/css">
+
+    body {
+        font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", "Roboto Light", "Segoe UI Web Light", "Segoe UI Light", "Segoe UI Web Regular", "Segoe UI", Helvetica, Arial, sans-serif; 
+        margin: 1em;
+        background: #293950;
+        color: #ecf0f0;
+    }
+    section {
+        margin: 0 auto;
+    }
+    h1 {
+        font-weight: normal;
+        font-size: 2.4em;
+    }
+    a {
+        color: gold;
+    }
+</style>
+<div id="chart"></div>
+
+<!--script src="https://cdn.pubnub.com/pubnub.min.js"></script-->
+<script src=https://cdn.pubnub.com/sdk/javascript/pubnub.4.0.11.min.js></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.min.js"></script>
+<script src="pubnubkeys.js"></script>
+<script>
+    	var diameter = 600;
+        var width = diameter;
+        var height = diameter;
+        var circleMovingIncrement = 30;
+        var duration = 1000;
+        var duration = 1000;
+	var delay = 0;
+
+        (function() { 
+	
+  // D3 Bubble Chart 
+	var svg = d3.select('#chart').append('svg')
+		.attr('width', diameter)
+		.attr('height', diameter);
+
+	var bubble = d3.layout.pack()
+		.size([diameter, diameter])
+		.value(function(d) {return d.size;}) // new data is loaded to bubble layout
+		.padding(3);
+
+	function drawBubbles(m) {
+
+		// generate data with calculated layout values
+		var nodes = bubble.nodes(processData(m))
+			.filter(function(d) { return !d.children; }); // filter out the outer bubble
+
+		// assign new data to existing DOM 
+		var vis = svg.selectAll('circle')
+			.data(nodes, function(d) { return d.uid; });
+
+		// enter - only applies to incoming elements (once emptying data)	
+		vis.enter().append('circle')
+			.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; })
+			.attr('r', function(d) { return d.r; })
+			.attr('class', function(d) { return d.className; })
+			.style('opacity', 0)
+                .attr("dx", -20)
+        .text(function(d){return d.name;})
+			.transition()
+			.duration(duration * 1.2)
+			.style('opacity', 1)
+                        .transition()
+                        .duration(5000)
+			.attr('transform', function(d) { return 'translate(' + d.x + ',' + (d.y - height) + ')'; })
+                        .ease('linear')
+                        .duration(5000)
+                        .style('opacity', 0)
+                        .remove();
+	}
+        
+        function processData(data){
+            if (!data)
+                return;
+            var dataSet = [];
+            var obj = JSON.parse(data);
+            traverse(obj, dataSet, "root");
+            return {children: dataSet};
+        }
+               
+        function traverse(o, dataSet, parentName) {
+            for (var i in o) {
+                if (o[i] !== null ){
+                    if (typeof(o[i])==="object") {
+                        //going one step down in the object tree!!
+                        traverse(o[i],dataSet, i);
+                    } else {
+                       //only push on fields (not objects)
+                       console.log(parentName + "." + i + " : "+o[i]);
+                       dataSet.push({name: i, 
+                           className: getClassName(parentName), 
+                           size: (isNaN(o[i])?o[i].length:o[i]),
+                           uid: (Math.floor((1 + Math.random()) * 0x10000))});
+                       console.log(dataSet[dataSet.length-1].size);
+                    }
+                }
+            }
+        }
+
+        function getClassName(name) {
+            if (document.getElementsByClassName(name).length === 0) {
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.innerHTML = '.' + name + ' { fill: #' + getHashColor(name) + '; background: #F495A3; }';
+                document.getElementsByTagName('head')[0].appendChild(style);
+            }
+            return name;
+        }
+
+
+        function getHashColor(name) {
+            var hash = 0, i, chr;
+            if (name.length === 0)
+                return hash;
+            for (i = 0; i < name.length; i++) {
+                chr = name.charCodeAt(i);
+                //try and distribute the char a-z or A-Z to a # between 0&255
+                chr = (chr < 97) ? chr - 64 : chr - 70;
+                chr += (52 * (chr % 5)) + i % 5;
+                //shift determines which of the 3 bytes we want to update
+                var shift = (name.length > 2) ? (i % 3) : (chr % 3);
+                //update the byte by adding to it
+                hash += ((chr | (hash & 0xFF)) << 8 * shift);
+            }
+            //we used addition so.. number might exceed 3 bytes now, mask it
+            hash &= 0xFFFFFF;
+            //this gets our number to a six character hex representation of hash
+            var pad = "000000";
+            return pad.substring(0, pad.length - hash.toString(16).length) + hash.toString(16);
+        }
+        //getData();
+        pubnub.addListener({
+            message: function(obj){drawBubbles(obj.message);}
+        });
+        pubnub.subscribe({channels:[channel]});
+        
+    })();
+</script>

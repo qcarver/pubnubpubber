@@ -1,0 +1,30 @@
+{"widget": {
+    "window": {
+        "title": 100,
+        "name": 70,
+        "width": 50,
+        "height": 20
+    },
+    "image": { 
+        "src": 120,
+        "name": 100,
+        "hoffset": 50,
+        "voffset": 30,
+        "alignment": 10
+    },
+    "text": {
+        "data": 20,
+        "size": 90,
+        "style": 80,
+        "name": 70,
+        "hoffset": 60,
+        "voffset": 50,
+        "alignment": 100,
+        "onmouseUp": 30
+    },
+    "academia": {
+	"foo": 30,
+	"bar": 50,
+	"baz": 30
+    }
+}}  

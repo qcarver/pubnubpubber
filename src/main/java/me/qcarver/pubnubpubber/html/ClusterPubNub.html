@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<style media="screen" type="text/css">
+
+    body {
+        font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", "Roboto Light", "Segoe UI Web Light", "Segoe UI Light", "Segoe UI Web Regular", "Segoe UI", Helvetica, Arial, sans-serif; 
+        margin: 1em;
+        background: #293950;
+        color: #ecf0f0;
+    }
+    section {
+        margin: 0 auto;
+    }
+    h1 {
+        font-weight: normal;
+        font-size: 2.4em;
+    }
+    a {
+        color: gold;
+    }
+</style>
+<div id="chart"></div>
+
+<!--script src="https://cdn.pubnub.com/pubnub.min.js"></script-->
+<script src=https://cdn.pubnub.com/sdk/javascript/pubnub.4.0.11.min.js></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.min.js"></script>
+<script src="pubnubkeys.js"></script>
+
+<script>
+    var diameter = 600,
+            width = diameter,
+            height = diameter,
+            padding = 1.5, // separation between same-color nodes
+            clusterPadding = 6, // separation between different-color nodes
+            maxRadius = 12,
+            n = 200, // total number of nodes
+            m = 10; // number of distinct clusters;
+
+    var kingPin = [];
+
+    (function () {
+        function drawBubbles(nodes) {
+
+//// Use the pack layout to initialize node positions.
+            var bubbles = d3.layout.pack()
+                    .sort(null)
+                    .size([width, height])
+                    .children(function (d) {
+                        return d.values;
+                    })
+                    .value(function (d) {
+                        return d.size;
+                    })
+                    .nodes({values: d3.nest()
+                                .key(function (d) {
+                                    return d.className;
+                                })
+                                .entries(nodes)});
+
+            var force = d3.layout.force()
+                    .nodes(nodes)
+                    .size([width, height])
+                    .gravity(.02)
+                    .charge(0)
+                    .on("tick", tick)
+                    .start();
+            var svg = d3.select("body").append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+            var node = svg.selectAll("circle")  //QC returns a seclection of the list of circles in svg (or where to add them)
+                    .data(nodes)                //QC everything from here on is executing #ofnodes times
+                    .enter().append("circle")
+                    .attr('class', function (d) {  //QC d corresponds to the data from your dataset (for that node)
+                        return d.className;
+                    })
+                    .call(force.drag);
+            
+            node.transition()
+                    .duration(750)
+                    .delay(function (d, i) {
+                        return i * 5;
+                    })
+                    .attrTween("r", function (d) {
+                        var i = d3.interpolate(0, d.size);
+                        return function (t) {
+                            return d.size = i(t);
+                        };
+                    });
+
+            function tick(e) {
+                node
+                        .each(cluster(10 * e.alpha * e.alpha))  //QC cluster is a method (below)
+                        .each(collide(.5))
+                        .attr("cx", function (d) {
+                            return d.x;
+                        })
+                        .attr("cy", function (d) {
+                            return d.y;
+                        });
+            }
+//
+//// Move d to be adjacent to the cluster node.
+            function cluster(alpha) {
+                return function (d) {
+                    var cluster = kingPin[d.className];   //return the kingPin for this nodes cluster  (the cluter var here is the kingPin)
+                    if (cluster === d)
+                        return;
+                    var x = d.x - cluster.x,
+                            y = d.y - cluster.y,
+                            l = Math.sqrt(x * x + y * y),
+                            r = d.size + cluster.size;
+                    if (l != r) {
+                        l = (l - r) / l * alpha;
+                        d.x -= x *= l;
+                        d.y -= y *= l;
+                        cluster.x += x;
+                        cluster.y += y;
+                    }
+                };
+            }
+//
+//// Resolves collisions between d and all other circles.
+            function collide(alpha) {
+                var quadtree = d3.geom.quadtree(nodes);
+                return function (d) {
+                    var r = d.size + maxRadius + Math.max(padding, clusterPadding),
+                            nx1 = d.x - r,
+                            nx2 = d.x + r,
+                            ny1 = d.y - r,
+                            ny2 = d.y + r;
+                    quadtree.visit(function (quad, x1, y1, x2, y2) {
+                        if (quad.point && (quad.point !== d)) {
+                            var x = d.x - quad.point.x,
+                                    y = d.y - quad.point.y,
+                                    l = Math.sqrt(x * x + y * y),
+                                    r = d.size + quad.point.size + (d.className === quad.point.className ? padding : clusterPadding);
+                            if (l < r) {
+                                l = (l - r) / l * alpha;
+                                d.x -= x *= l;
+                                d.y -= y *= l;
+                                quad.point.x += x;
+                                quad.point.y += y;
+                            }
+                        }
+                        return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+                    });
+                };
+            }
+        }
+
+//////////////////////////below here: gettting the data from pubnub
+
+        function processData(data) {
+            if (!data)
+                return;
+            var dataSet = [];
+            var obj = JSON.parse(data);    //coudl use d3.json(data,callbackfx()...) here pg 71 IDV4W
+            traverse(obj, dataSet, "root");
+            return dataSet;
+        }
+
+        function traverse(o, dataSet, parentName) {
+            for (var i in o) {
+                if (o[i] !== null) {
+                    if (typeof (o[i]) === "object") {
+                        //going one step down in the object tree!!
+                        traverse(o[i], dataSet, i);
+                    } else {
+                        //only push on fields (not objects)
+                        var className = getClassName(parentName);
+                        var size = (isNaN(o[i]) ? o[i].length : o[i]);
+                        console.log(parentName + "." + i + ": " + size);
+                        dataSet.push({name: i,
+                            className: className,
+                            size: size,
+                            uid: (Math.floor((1 + Math.random()) * 0x10000))});
+                        //keep track of the 'biggest' one
+                        if (!kingPin[className] || (size > kingPin[className].size)) {
+                            kingPin[className] = dataSet[dataSet.length - 1];
+                            console.log("Biggest " + className + " added to list of kingPens");
+                        }
+                    }
+                }
+            }
+        }
+
+        //method which returns the CSS class that hashes to a name
+        function getClassName(name) {
+            if (document.getElementsByClassName(name).length === 0) {
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.innerHTML = '.' + name + ' { fill: #' + getHashColor(name) + '; background: #F495A3; }';
+                document.getElementsByTagName('head')[0].appendChild(style);
+            }
+            return name;
+        }
+
+        //method which creates a CSS class with a color that hashes to a name
+        function getHashColor(name) {
+            var hash = 0, i, chr;
+            if (name.length === 0)
+                return hash;
+            for (i = 0; i < name.length; i++) {
+                chr = name.charCodeAt(i);
+                //try and distribute the char a-z or A-Z to a # between 0&255
+                chr = (chr < 97) ? chr - 64 : chr - 70;
+                chr += (52 * (chr % 5)) + i % 5;
+                //shift determines which of the 3 bytes we want to update
+                var shift = (name.length > 2) ? (i % 3) : (chr % 3);
+                //update the byte by adding to it
+                hash += ((chr | (hash & 0xFF)) << 8 * shift);
+            }
+            //we used addition so.. number might exceed 3 bytes now, mask it
+            hash &= 0xFFFFFF;
+            //this gets our number to a six character hex representation of hash
+            var pad = "000000";
+            return pad.substring(0, pad.length - hash.toString(16).length) + hash.toString(16);
+        }
+        //getData();
+        pubnub.addListener({
+            message: function (obj) {
+                //processData returns Nodes to drawBubbles
+                drawBubbles(processData(obj.message));
+            }
+        });
+        pubnub.subscribe({channels: [channel]});
+    })();
+</script>
