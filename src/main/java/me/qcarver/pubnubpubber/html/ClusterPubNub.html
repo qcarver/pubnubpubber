@@ -23,14 +23,11 @@
 <body onload="connect()">
     <div id="chart"></div>
 
-    <!--script src="https://cdn.pubnub.com/pubnub.min.js"></script-->
     <script src=https://cdn.pubnub.com/sdk/javascript/pubnub.4.0.11.min.js></script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.min.js"></script>
     <script src="pubnubkeys.js"></script>
     <script src="d3moji.js"></script>
     <script src="Clusterg.js"></script>
-    <!-- script src="ClusterEmoji.js"></script -->
 
     <script>
     //////////////////////////below here: gettting the data from pubnub
@@ -114,7 +111,7 @@
         pubnub.subscribe({channels: [channel]});
     }
 
-    ///other utilities
+    //////////////////////other utilities
     
     //add a function to the native String type to emulate java's hashCode()
     String.prototype.hashCode = function () {
@@ -128,7 +125,5 @@
         }
         return hash;
     };
-
-
     </script>
 </body>

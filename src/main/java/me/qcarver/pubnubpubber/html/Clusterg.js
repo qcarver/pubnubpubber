@@ -13,10 +13,6 @@ var diameter = 600,
         n = 200, // total number of nodes
         m = 10; // number of distinct clusters;
 
-//List of the biggest nodes w/in each cluster
-//var kingPin = [];
-
-
 function drawBubbles(nodes) {
 
 // Use the pack layout to initialize node positions.
@@ -51,12 +47,7 @@ function drawBubbles(nodes) {
             .data(nodes)
             .enter()
             .append("g")
-            .call(force.drag);  //? g is moving but the circles and text aren't following
-
-    //.call(force.drag);
-//            .attr("transform", function (d) {
-//                    return "translate(" + d.x + "," + d.y + ")";
-//                })
+            .call(force.drag);
 
     var circle = node.append("circle")
             .attr('class', function (d) {  //QC d corresponds to the data from your dataset (for that node)
@@ -82,20 +73,26 @@ function drawBubbles(nodes) {
                 return -20;
             })
             .attr("clip-path", function (d) {
-                return "url(#clip-" + d.uid+")";
+                return "url(#clip-" + d.uid + ")";
             })
             .text(function (d) {
                 return d.className;
             });
-            
-            node.append('emoji')
-        .attr('symbol', function(d){return emojiHash(d.name);})
-        .attr('width', function(d){return d.size;})
-        .attr('height', function(d){return d.size;})
-        .attr('opacity',255)
-.attr("transform", function (d) {
-                    return "translate(" + (-.5 * d.size) + "," + (-.5 * d.size) + ")";
-                });
+
+    node.append('emoji')
+            .attr('symbol', function (d) {
+                return emojiHash(d.name);
+            })
+            .attr('width', function (d) {
+                return d.size;
+            })
+            .attr('height', function (d) {
+                return d.size;
+            })
+            .attr('opacity', 255)
+            .attr("transform", function (d) {
+                return "translate(" + (-.5 * d.size) + "," + (-.5 * d.size) + ")";
+            });
 
     circle.transition()
             .duration(750)
@@ -118,12 +115,6 @@ function drawBubbles(nodes) {
                 .attr("transform", function (d) {
                     return "translate(" + d.x + "," + d.y + ")";
                 });
-//                .attr("cx", function (d) {
-//                    return d.x;
-//                })
-//                .attr("cy", function (d) {
-//                    return d.y;
-//                });
     }
 
 // Move d to be adjacent to the cluster node.
@@ -173,15 +164,9 @@ function drawBubbles(nodes) {
             });
         };
     }
-    
+
     //hash any given string to an emoji name
-function emojiHash(hashMe){
-//        var min32 = -2147483647;
-//        var max32 = 2147483647;
-//        var f = d3.scale.linear()
-//    .domain([min32, max32])
-//    .range([0, Object.keys(emojiMap).length]);
-//    return Object.keys(emojiMap)[Math.floor(hashMe.hashCode()%Object.keys(emojiMap).length)]; 
-    return Object.keys(emojiMap)[Math.abs(hashMe.hashCode())%Object.keys(emojiMap).length];
+    function emojiHash(hashMe) {
+        return Object.keys(emojiMap)[Math.abs(hashMe.hashCode()) % Object.keys(emojiMap).length];
     }
 }
