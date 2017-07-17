@@ -4,19 +4,19 @@
  * and open the template in the editor.
  */
 
-var diameter = 600,
-        width = diameter,
-        height = diameter,
-        padding = 1.5, // separation between same-color nodes
+        var width = window.innerWidth,
+        height = window.innerHeight,
+       padding = 1.5, // separation between same-color nodes
         clusterPadding = 6, // separation between different-color nodes
-        maxRadius = 120,
-        n = 200, // total number of nodes
-        m = 10; // number of distinct clusters;
+        maxRadius = 80;
+        minRadius = 10;
+        //n = 200, // total number of nodes
+        //m = 10; // number of distinct clusters;
 
 function drawBubbles(nodes) {
 
 // Use the pack layout to initialize node positions.
-    var bubbles = d3.layout.pack()
+    d3.layout.pack()
             .sort(null)
             .size([width, height])
             .children(function (d) {
@@ -31,17 +31,18 @@ function drawBubbles(nodes) {
                         })
                         .entries(nodes)});
 
-    var force = d3.layout.force()
+    var svg = d3.select("body").append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+    
+        var force = d3.layout.force()
             .nodes(nodes)
             .size([width, height])
             .gravity(.02)
             .charge(0)
             .on("tick", tick)
             .start();
-
-    var svg = d3.select("body").append("svg")
-            .attr("width", width)
-            .attr("height", height);
 
     var node = svg.selectAll("g")
             .data(nodes)
@@ -57,42 +58,50 @@ function drawBubbles(nodes) {
                 return "circle-" + d.uid;
             });
 
-    //make a clipping path 
-    node.append("clipPath")
-            .attr("id", function (d) {
-                return "clip-" + d.uid + "";
-            })
-            //use the circle we just made to define the path
-            .append("use")
-            .attr("xlink:href", function (d) {
-                return "#circle-" + d.uid;
-            });
-
-    node.append("text")
-            .attr("dx", function (d) {
-                return -20;
-            })
-            .attr("clip-path", function (d) {
-                return "url(#clip-" + d.uid + ")";
-            })
-            .text(function (d) {
-                return d.className;
-            });
+    //make a clipping path for text... don't need it though text just clutters
+//    node.append("clipPath")
+//            .attr("id", function (d) {
+//                return "clip-" + d.uid + "";
+//            })
+//            //use the circle we just made to define the path
+//            .append("use")
+//            .attr("xlink:href", function (d) {
+//                return "#circle-" + d.uid;
+//            });
+//
+//    node.append("text")
+//            .attr("dx", function (d) {
+//                return -20;
+//            })
+//            .attr("clip-path", function (d) {
+//                return "url(#clip-" + d.uid + ")";
+//            })
+//            .text(function (d) {
+//                return d.className;
+//            });
 
     node.append('emoji')
             .attr('symbol', function (d) {
                 return emojiHash(d.name);
             })
             .attr('width', function (d) {
-                return d.size;
+                return circleSize(d.size);
             })
             .attr('height', function (d) {
-                return d.size;
+                return circleSize(d.size);
             })
             .attr('opacity', 255)
             .attr("transform", function (d) {
-                return "translate(" + (-.5 * d.size) + "," + (-.5 * d.size) + ")";
+                return "translate(" + (-.5 * circleSize(d.size)) + "," + (-.5 * circleSize(d.size)) + ")";
             });
+            
+    //make an alpha mask to tint the emojis the same color as their clusters
+    node.append("use")
+                .attr("xlink:href", function (d) {
+                return "#circle-" + d.uid;
+            })    .style("fill", "white")
+    .style("opacity", 0.5);    
+            
 
     circle.transition()
             .duration(750)
@@ -100,12 +109,24 @@ function drawBubbles(nodes) {
                 return i * 5;
             })
             .attrTween("r", function (d) {
-                var i = d3.interpolate(0, d.size);
+                var i = d3.interpolate(0,circleSize(d.size));
                 return function (t) {
                     return d.size = i(t);
                 };
             });
 
+  function circleSize(d){
+      return Math.min(maxRadius + Math.log10(d),Math.max(minRadius,d/2));
+  }
+
+  resize();
+  d3.select(window).on("resize", resize);
+  
+    function resize() {
+    width = window.innerWidth, height = window.innerHeight;
+    svg.attr("width", width).attr("height", height);
+    force.size([width, height]).resume();
+  }
 
     function tick(e) {
         node
