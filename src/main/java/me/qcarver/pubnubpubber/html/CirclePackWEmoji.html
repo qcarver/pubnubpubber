@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<style media="screen" type="text/css">
+
+    body {
+        font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", "Roboto Light", "Segoe UI Web Light", "Segoe UI Light", "Segoe UI Web Regular", "Segoe UI", Helvetica, Arial, sans-serif; 
+        margin: 1em;
+        background: #293950;
+        color: #ecf0f0;
+    }
+    section {
+        margin: 0 auto;
+    }
+    h1 {
+        font-weight: normal;
+        font-size: 2.4em;
+    }
+    a {
+        color: gold;
+    }
+</style>
+<div id="chart"></div>
+
+<!--script src="https://cdn.pubnub.com/pubnub.min.js"></script-->
+<script src=https://cdn.pubnub.com/sdk/javascript/pubnub.4.0.11.min.js></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.min.js"></script>
+<script src="pubnubkeys.js"></script>
+<script src="d3moji.js"></script>
+<script>
+    var width = window.innerWidth,
+            height = window.innerHeight,
+            maxRadius = 60,
+            setupTime = 250,
+            minRadius = 5,
+            duration = 1000,
+            layoutSize = 0;
+
+
+    //processData tallies the layout size while it spins
+    layoutSize = 0;
+
+    // D3 Bubble Chart 
+    var svg = d3.select('#chart').append('svg')
+            .attr('width', width)
+            .attr('height', height);
+
+    function drawBubbles(m) {
+        //processData tallies the layout size while it spins
+        layoutSize = 0;
+        var jsonData = processData(m);
+
+
+
+        var bubble = d3.layout.pack()
+                .size([layoutSize, layoutSize])
+                .value(function (d) {
+                    return d.size;
+                }) // new data is loaded to bubble layout
+                .padding(3);
+
+        // generate data with calculated layout values
+        var nodes = bubble.nodes(jsonData)
+                .filter(function (d) {
+                    if (!d.children) {
+                        return !d.children;
+                    }
+                }); // filter out the outer bubble
+
+
+        // assign new data to existing DOM 
+        var vis = svg.selectAll("g")
+                .data(nodes)
+                .enter()
+                .append("g")
+                .attr('transform', function (d) {
+                    return 'translate(' + d.x + ',' + (d.y + height) + ')';
+                });
+
+        // enter - only applies to incoming elements (once emptying data)	
+        vis.append('circle')
+                .attr('r', function (d) {
+                    return d.r;
+                })
+                .attr('class', function (d) {
+                    return d.className;
+                })
+                .attr("id", function (d) {
+                    return "circle-" + d.uid;
+                })
+
+
+        vis.append('emoji')
+                .attr('symbol', function (d) {
+                    return emojiHash(d.name);
+                })
+                .attr('width', function (d) {
+                    return d.size * 1.5;
+                })
+                .attr('height', function (d) {
+                    return d.size * 1.5;
+                })
+                .attr('opacity', 255)
+                .attr("transform", function (d) {
+                    return "translate(" + (-.75 * d.size) + "," + (-.755 * d.size) + ")";
+                })
+                .transition()
+                .duration(duration * 1.2)
+                .style('opacity', 1);
+
+        //make an alpha mask to tint the emojis the same color as their clusters
+        vis.append("use")
+                .attr("xlink:href", function (d) {
+                    return "#circle-" + d.uid;
+                }).style("fill", "white")
+                .style("opacity", 0.5);
+
+
+        vis.transition()
+                .duration(duration * 1.2)
+                .style('opacity', 1)
+                .transition()
+                .duration(5000)
+                .attr('transform', function (d) {
+                    return 'translate(' + d.x + ',' + (d.y - height) + ')';
+                })
+                .ease('linear')
+                .duration(5000)
+                .remove();
+
+    }
+
+    function processData(data) {
+        if (!data)
+            return;
+        var dataSet = [];
+        var obj = JSON.parse(data);
+        traverse(obj, dataSet, "root");
+        return {children: dataSet};
+    }
+
+    function traverse(o, dataSet, parentName) {
+        for (var i in o) {
+            if (o[i] !== null) {
+                if (typeof (o[i]) === "object") {
+                    //going one step down in the object tree!!
+                    traverse(o[i], dataSet, i);
+                } else {
+                    //only push on fields (not objects)
+                    console.log(parentName + "." + i + " : " + o[i]);
+                    var size = circleSize(o[i]);
+                    layoutSize += size;
+                    dataSet.push({name: i, className: getClassName(parentName), size: size
+                                            ,suid: (Math.floor((1 + Math.random()) * 0x10000))});
+                }
+            }
+        }
+    }
+
+    function getClassName(name) {
+        if (document.getElementsByClassName(name).length === 0) {
+            var style = document.createElement('style');
+            style.type = 'text/css';
+            style.innerHTML = '.' + name + ' { fill: #' + getHashColor(name) + '; background: #F495A3; }';
+            document.getElementsByTagName('head')[0].appendChild(style);
+        }
+        return name;
+    }
+
+
+    function getHashColor(name) {
+        var hash = 0, i, chr;
+        if (name.length === 0)
+            return hash;
+        for (i = 0; i < name.length; i++) {
+            chr = name.charCodeAt(i);
+            //try and distribute the char a-z or A-Z to a # between 0&255
+            chr = (chr < 97) ? chr - 64 : chr - 70;
+            chr += (52 * (chr % 5)) + i % 5;
+            //shift determines which of the 3 bytes we want to update
+            var shift = (name.length > 2) ? (i % 3) : (chr % 3);
+            //update the byte by adding to it
+            hash += ((chr | (hash & 0xFF)) << 8 * shift);
+        }
+        //we used addition so.. number might exceed 3 bytes now, mask it
+        hash &= 0xFFFFFF;
+        //this gets our number to a six character hex representation of hash
+        var pad = "000000";
+        return pad.substring(0, pad.length - hash.toString(16).length) + hash.toString(16);
+    }
+    //getData();
+    pubnub.addListener({
+        message: function (obj) {
+            drawBubbles(obj.message);
+        }
+    });
+    pubnub.subscribe({channels: [channel]});
+
+    function circleSize(value) {
+        var d = (isNaN(value) ? value.length : value)
+        return Math.min(maxRadius + Math.log10(d), Math.max(minRadius, d / 2));
+    }
+
+    //////////////////////other utilities
+
+    //hash any given string to an emoji name.. gets the icon from eg: https://twemoji.maxcdn.com/svg/1f4af.svg
+    function emojiHash(hashMe) {
+        return Object.keys(emojiMap)[Math.abs(hashMe.hashCode()) % Object.keys(emojiMap).length];
+    }
+
+    //add a function to the native String type to emulate java's hashCode()
+    String.prototype.hashCode = function () {
+        var hash = 0;
+        if (this.length === 0)
+            return hash;
+        for (var i = 0; i < this.length; i++) {
+            var character = this.charCodeAt(i);
+            hash = ((hash << 5) - hash) + character;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return hash;
+    };
+
+</script>

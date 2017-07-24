@@ -28,12 +28,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.min.js"></script>
 <script src="pubnubkeys.js"></script>
 <script>
-    	var diameter = 600;
-        var width = window.innerWidth;
-        var height = window.innerHeight;
-        var circleMovingIncrement = 30;
-        var duration = 1000;
-	var delay = 0;
+    var width = window.innerWidth,
+        height = window.innerHeight, 
+       	 diameter = 600;
 
         (function() { 
 	
@@ -43,9 +40,13 @@
 		.attr('height', height);
 
 	var bubble = d3.layout.pack()
-		.size([diameter, diameter])
+		.size([width, height])
 		.value(function(d) {return d.size;}) // new data is loaded to bubble layout
 		.padding(3);
+        var circleMovingIncrement = 30;
+        var duration = 1000;
+        		var duration = 1000;
+		var delay = 0;
 
 	function drawBubbles(m) {
 
@@ -53,18 +54,18 @@
 		var nodes = bubble.nodes(processData(m))
 			.filter(function(d) { return !d.children; }); // filter out the outer bubble
 
+
+
 		// assign new data to existing DOM 
 		var vis = svg.selectAll('circle')
-			.data(nodes, function(d) { return d.uid; });
+			.data(nodes, function(d) { return d.name; });
 
 		// enter - only applies to incoming elements (once emptying data)	
 		vis.enter().append('circle')
-			.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; })
+			.attr('transform', function(d) { return 'translate(' + d.x + ',' + (d.y + height) + ')'; })
 			.attr('r', function(d) { return d.r; })
 			.attr('class', function(d) { return d.className; })
-			.style('opacity', 0)
-                .attr("dx", -20)
-        .text(function(d){return d.name;})
+			.style('opacity', 0) 
 			.transition()
 			.duration(duration * 1.2)
 			.style('opacity', 1)
@@ -76,6 +77,31 @@
                         .style('opacity', 0)
                         .remove();
 	}
+
+        function getData() {
+            var i = 0;
+            pubnub.subscribe({
+                channel: channel,
+                callback: function (m) {
+                        drawBubbles(m);
+                }
+            });
+        }
+
+        function processData_(data) {
+            if (!data)
+                return;
+            var obj = JSON.parse(data);
+
+            var param = obj.widget.academia;
+
+            var newDataSet = [];
+
+            for (var prop in param) {
+                newDataSet.push({name: prop, className: getClassName(prop), size: param[prop]});
+            }
+            return {children: newDataSet};
+        }
         
         function processData(data){
             if (!data)
@@ -95,14 +121,16 @@
                     } else {
                        //only push on fields (not objects)
                        console.log(parentName + "." + i + " : "+o[i]);
-                       dataSet.push({name: i, 
-                           className: getClassName(parentName), 
-                           size: (isNaN(o[i])?o[i].length:o[i]),
-                           uid: (Math.floor((1 + Math.random()) * 0x10000))});
-                       console.log(dataSet[dataSet.length-1].size);
+                       dataSet.push({name: i, className: getClassName(parentName), size: (isNaN(o[i])?o[i].length:o[i])}); 
                     }
                 }
             }
+        }
+        
+        //called with every property and its value
+        function process(key,value,dataSet,parent) {
+            console.log(parent + "." + key + " : "+value);
+            dataSet.push({name: key, className: getClassName(parent), size: (isNaN(value)?value.length:value)});
         }
 
         function getClassName(name) {
