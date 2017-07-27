@@ -37,6 +37,7 @@
             duration = 1000,
             layoutSize = 0;
 
+    var nodes = [];
 
     //processData tallies the layout size while it spins
     layoutSize = 0;
@@ -47,27 +48,26 @@
             .attr('height', height);
 
     function drawBubbles(m) {
+         console.log("1> nodes.length == "+nodes.length);
         //processData tallies the layout size while it spins
         layoutSize = 0;
         var jsonData = processData(m);
-
-
-
+        console.log("Draw bubbles called, data processed");
         var bubble = d3.layout.pack()
                 .size([layoutSize, layoutSize])
                 .value(function (d) {
                     return d.size;
                 }) // new data is loaded to bubble layout
                 .padding(3);
-
+        console.log("bubble layout packed with size" + layoutSize);
         // generate data with calculated layout values
-        var nodes = bubble.nodes(jsonData)
+        nodes = nodes.concat(bubble.nodes(jsonData)
                 .filter(function (d) {
                     if (!d.children) {
                         return !d.children;
                     }
-                }); // filter out the outer bubble
-
+                })); // filter out the outer bubble
+         console.log("2> nodes.length == "+nodes.length);
 
         // assign new data to existing DOM 
         var vis = svg.selectAll("g")
@@ -116,7 +116,6 @@
                 }).style("fill", "white")
                 .style("opacity", 0.5);
 
-
         vis.transition()
                 .duration(duration * 1.2)
                 .style('opacity', 1)
@@ -126,8 +125,8 @@
                     return 'translate(' + d.x + ',' + (d.y - height) + ')';
                 })
                 .ease('linear')
-                .duration(5000)
-                .remove();
+                .duration(5000);
+                //.remove();  << how does this remove function work? can we have it call something to delete our expired nodes array objects?
 
     }
 
@@ -148,11 +147,11 @@
                     traverse(o[i], dataSet, i);
                 } else {
                     //only push on fields (not objects)
-                    console.log(parentName + "." + i + " : " + o[i]);
+                    //console.log(parentName + "." + i + " : " + o[i]);
                     var size = circleSize(o[i]);
                     layoutSize += size;
                     dataSet.push({name: i, className: getClassName(parentName), size: size
-                                            ,suid: (Math.floor((1 + Math.random()) * 0x10000))});
+                                            ,uid: (Math.floor((1 + Math.random()) * 0x10000))});
                 }
             }
         }
