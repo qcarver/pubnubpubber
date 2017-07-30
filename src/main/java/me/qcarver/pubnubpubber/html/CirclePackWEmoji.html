@@ -37,7 +37,7 @@
             duration = 1000,
             layoutSize = 0;
 
-    var nodes = [];
+    //var nodes = [];
 
     //processData tallies the layout size while it spins
     layoutSize = 0;
@@ -48,11 +48,9 @@
             .attr('height', height);
 
     function drawBubbles(m) {
-         console.log("1> nodes.length == "+nodes.length);
         //processData tallies the layout size while it spins
         layoutSize = 0;
         var jsonData = processData(m);
-        console.log("Draw bubbles called, data processed");
         var bubble = d3.layout.pack()
                 .size([layoutSize, layoutSize])
                 .value(function (d) {
@@ -61,22 +59,35 @@
                 .padding(3);
         console.log("bubble layout packed with size" + layoutSize);
         // generate data with calculated layout values
-        nodes = nodes.concat(bubble.nodes(jsonData)
+        var nodes = bubble.nodes(jsonData)
                 .filter(function (d) {
                     if (!d.children) {
                         return !d.children;
                     }
-                })); // filter out the outer bubble
-         console.log("2> nodes.length == "+nodes.length);
+                }); // filter out the outer bubble
 
-        // assign new data to existing DOM 
+        //DATA JOIN: assign new data to existing DOM 
         var vis = svg.selectAll("g")
-                .data(nodes)
-                .enter()
+                .data(nodes, function(d){return d.uid;});
+
+        //UPDATE: //there is no UPDATE in this design
+
+        //ENTER + UPDATE
+        vis.enter()
                 .append("g")
                 .attr('transform', function (d) {
                     return 'translate(' + d.x + ',' + (d.y + height) + ')';
-                });
+                })
+                .transition()
+                .duration(duration * 1.2)
+                .style('opacity', 1)
+                .transition()
+                .duration(5000)
+                .attr('transform', function (d) {
+                    return 'translate(' + d.x + ',' + (d.y) + ')';
+                })
+                .ease('linear')
+                .duration(5000);
 
         // enter - only applies to incoming elements (once emptying data)	
         vis.append('circle')
@@ -116,7 +127,8 @@
                 }).style("fill", "white")
                 .style("opacity", 0.5);
 
-        vis.transition()
+        //EXIT: Remove ald elements as needed
+        vis.exit().transition()
                 .duration(duration * 1.2)
                 .style('opacity', 1)
                 .transition()
@@ -125,9 +137,8 @@
                     return 'translate(' + d.x + ',' + (d.y - height) + ')';
                 })
                 .ease('linear')
-                .duration(5000);
-                //.remove();  << how does this remove function work? can we have it call something to delete our expired nodes array objects?
-
+                .duration(5000)
+        .remove(); 
     }
 
     function processData(data) {
@@ -151,7 +162,7 @@
                     var size = circleSize(o[i]);
                     layoutSize += size;
                     dataSet.push({name: i, className: getClassName(parentName), size: size
-                                            ,uid: (Math.floor((1 + Math.random()) * 0x10000))});
+                        , uid: (Math.floor((1 + Math.random()) * 0x10000))});
                 }
             }
         }
