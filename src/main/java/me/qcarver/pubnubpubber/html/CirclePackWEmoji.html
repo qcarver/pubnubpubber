@@ -68,7 +68,9 @@
 
         //DATA JOIN: assign new data to existing DOM 
         var vis = svg.selectAll("g")
-                .data(nodes, function(d){return d.uid;});
+                .data(nodes, function (d) {
+                    return d.uid;
+                });
 
         //UPDATE: //there is no UPDATE in this design
 
@@ -78,16 +80,12 @@
                 .attr('transform', function (d) {
                     return 'translate(' + d.x + ',' + (d.y + height) + ')';
                 })
-                .transition()
-                .duration(duration * 1.2)
-                .style('opacity', 1)
-                .transition()
+                .transition("enter")
                 .duration(5000)
                 .attr('transform', function (d) {
                     return 'translate(' + d.x + ',' + (d.y) + ')';
                 })
-                .ease('linear')
-                .duration(5000);
+                .ease('linear');
 
         // enter - only applies to incoming elements (once emptying data)	
         vis.append('circle')
@@ -99,8 +97,7 @@
                 })
                 .attr("id", function (d) {
                     return "circle-" + d.uid;
-                })
-
+                });
 
         vis.append('emoji')
                 .attr('symbol', function (d) {
@@ -115,30 +112,33 @@
                 .attr('opacity', 255)
                 .attr("transform", function (d) {
                     return "translate(" + (-.75 * d.size) + "," + (-.755 * d.size) + ")";
-                })
-                .transition()
-                .duration(duration * 1.2)
-                .style('opacity', 1);
+                });
 
         //make an alpha mask to tint the emojis the same color as their clusters
         vis.append("use")
                 .attr("xlink:href", function (d) {
                     return "#circle-" + d.uid;
                 }).style("fill", "white")
-                .style("opacity", 0.5);
+                .style("opacity", 0.5)
+                .on('click', function (d) {
+                    //vis.transition("enter")
+                      //      .duration(0);
+                    vis.transition("select")
+                            .duration(1000)
+                            .attr("transform", function (d) {
+                                return 'translate(' + (d.x + width / 2) + ',' + d.y + ')';
+                            }).ease('linear');
+                });
+
 
         //EXIT: Remove ald elements as needed
         vis.exit().transition()
-                .duration(duration * 1.2)
-                .style('opacity', 1)
-                .transition()
-                .duration(5000)
                 .attr('transform', function (d) {
                     return 'translate(' + d.x + ',' + (d.y - height) + ')';
                 })
                 .ease('linear')
                 .duration(5000)
-        .remove(); 
+                .remove();
     }
 
     function processData(data) {
