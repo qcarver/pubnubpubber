@@ -10,13 +10,8 @@ import com.pubnub.api.PubNub;
 import com.pubnub.api.callbacks.PNCallback;
 import com.pubnub.api.models.consumer.PNPublishResult;
 import com.pubnub.api.models.consumer.PNStatus;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.logging.Level;
@@ -27,7 +22,7 @@ import me.qcarver.pubnubpubber.DropFrame.DropCallback;
  *
  * @author Quinn Carver
  */
-public class App{
+public class App {
 
     File tempDir = null;
     PNConfiguration pnConfiguration = null;
@@ -35,9 +30,8 @@ public class App{
     String channel;
     String pubKey;
     String subKey;
-    
-    DropFrame gui = null;
 
+    DropFrame gui = null;
 
     public static void main(String[] args) {
         //get Configuration.get().uration
@@ -55,15 +49,15 @@ public class App{
 
     private void init() {
         initPubNub();
-                String labelContents
+        String labelContents
                 = "<html><br><center><H1>Drag json file</H1><br>(to publish)<br>"
                 + "<H1>[HERE]</H1><br>Channel " + channel + "<br><small>pubKey: "
                 + pubKey + "</center></small></html>";
-                String title = "PubNubPubber";
-        gui = new DropFrame(title, labelContents, 
-        new DropCallback(){
+        String title = "PubNubPubber";
+        gui = new DropFrame(title, labelContents,
+                new DropCallback() {
             @Override
-            public void onDrop(String nameOfFileDropped){
+            public void onDrop(String nameOfFileDropped) {
                 publishFile(nameOfFileDropped);
             }
         });
@@ -103,32 +97,51 @@ public class App{
         pubnub = new PubNub(pnConfiguration);
     }
 
-    private void publishFile(String filename) {
-        InputStream is;
-        String fileContents;
-        try {
-            is = new FileInputStream(filename);
+    private void publishFile(String fileName) {
+        JsonFileReader reader = new JsonFileReader(fileName);
 
-            BufferedReader buf = new BufferedReader(new InputStreamReader(is));
-            String line = buf.readLine();
-            StringBuilder sb = new StringBuilder();
-            while (line != null) {
-                sb.append(line).append("\n");
-                line = buf.readLine();
+        if (!reader.isTestRunFile()) {
+            publishString(reader.getFileAsString());
+        } else {
+            System.out.println("test data was drag and dropped");
+            String nextData = null; 
+            
+            //this will change.. JS will poll
+            while ((nextData = reader.getNextData())!=null) {
+                publishString(nextData);
+                try {
+
+                    Thread.sleep(2000);
+                } catch (InterruptedException ex) {
+                    //do stuff
+                }
+                //allow for pause request
             }
-            //knock out all invisibles, eg: carriage returns
-            fileContents = sb.toString().replaceAll("\\p{C}", "");
-            //nice to debug /w: System.out.println("Contents : " + fileContents);
-            publishString(fileContents);
-        } catch (FileNotFoundException ex) {
-            fileContents = "Publisher couldn't find the file " + filename;
-            System.err.println(fileContents);
-        } catch (IOException ex) {
-            fileContents = "Publisher had an I/O issue with the file " + filename;
-            System.err.println(fileContents);
         }
     }
 
+    /*
+    PublishFile is called
+        if File is a single file: publish the file JSONOBject.toJSONString
+        If File has a test_data array load the array
+            start some timer which publishes each array element over time
+    
+    Order of events:
+    JS:Loading page causes it to request an example (by ordinal #)
+    J: An example is published
+    JS:Page requests test_data
+    J: Test Data sent on a timer
+    JS:Page requests pause
+    J: Timer pauses
+    JS:Page requests continue
+    J: Timer restarts
+    J: Publishes end of test message
+    
+    Need to story board these web pages
+    
+    
+    
+     */
     private void publishString(String fileContents) {
         pubnub.publish()
                 .channel("thesis")
@@ -139,8 +152,7 @@ public class App{
                         // Check whether request successfully completed or not.
                         if (!status.isError()) {
                             System.out.println("message successfully published");
-                        }
-                        else {
+                        } else {
                             System.err.println("Message failed to publish");
                             gui.showError("<html><center><br><H1>Failed</H1>"
                                     + "to publish<br>"

@@ -8,7 +8,9 @@ package me.qcarver.pubnubpubber;
 import java.io.FileReader;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.function.BiConsumer;
 
 import org.json.simple.JSONArray;
@@ -23,10 +25,11 @@ public class JsonFileReader {
 
     String filename;
     Map objects = new HashMap<>();
-    JSONArray testData = null;
     boolean haveParsed;
     static final private String ICSHT_DAS_SHAMPLE_FILE_NOMEN
             = "/Users/Quinn Carver/Downloads/MOCK_DATA.json";
+    JSONObject jsonObject = null;
+    Queue dataQ = null;
 
     JsonFileReader(String filename) {
         this.filename = filename;
@@ -36,28 +39,37 @@ public class JsonFileReader {
         JsonFileReader _this = new JsonFileReader(ICSHT_DAS_SHAMPLE_FILE_NOMEN);
         _this.parse();
     }
-    
-    public boolean isTestRunFile(){
-        if (!haveParsed){
+
+    public boolean isTestRunFile() {
+        if (!haveParsed) {
             parse();
         }
-        return (testData == null);
+        return (dataQ != null);
+    }
+    
+    public String getNextData(){
+        String nextData = null;
+        if (dataQ.size()>0){
+            nextData = dataQ.remove().toString();
+        }
+        return nextData;
     }
 
+    public String getFileAsString() {
+        return jsonObject.toJSONString();
+    }
+
+    
+    
     @SuppressWarnings("unchecked")
     private void parse() {
         JSONParser parser = new JSONParser();
 
         try {
-
             Object obj = parser.parse(new FileReader(filename));
-
-            JSONObject jsonObject = (JSONObject) obj;
+            jsonObject = (JSONObject) obj;
 
 //            String name = (String) jsonObject.get("Name");
-//            String author = (String) jsonObject.get("Author");
-//            JSONArray companyList = (JSONArray) jsonObject.get("Company List");
-
             BiConsumer<Object, Object> putInMap
                     = new BiConsumer<Object, Object>() {
                 @Override
@@ -65,25 +77,16 @@ public class JsonFileReader {
                     objects.put(t, u);
                 }
             };
-
             jsonObject.forEach(putInMap);
 
             if (objects.containsKey("test_data")) {
-                testData = (JSONArray) objects.get("test_data");
+                dataQ = new LinkedList<>();
+                dataQ.addAll((JSONArray) objects.get("test_data"));
             }
-
-//            System.out.println("Name: " + name);
-//            System.out.println("Author: " + author);
-//            System.out.println("\nCompany List:");
-            Iterator<JSONObject> iterator = testData.iterator();
-            while (iterator.hasNext()) {
-                System.out.println(iterator.next());
-            }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
+
         this.haveParsed = true;
     }
 }
