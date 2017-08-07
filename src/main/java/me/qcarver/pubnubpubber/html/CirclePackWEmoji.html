@@ -35,12 +35,11 @@
             setupTime = 250,
             minRadius = 5,
             duration = 1000,
-            layoutSize = 0;
-
-    //var nodes = [];
-
-    //processData tallies the layout size while it spins
-    layoutSize = 0;
+            layoutSize = (Math.min(width, height)) / 4;
+    emojiSize = layoutSize / 8;
+    transitTime = 10000;
+    column = 0;
+    hOffset = 0;
 
     // D3 Bubble Chart 
     var svg = d3.select('#chart').append('svg')
@@ -48,8 +47,10 @@
             .attr('height', height);
 
     function drawBubbles(m) {
+        newColumn = Math.floor(Math.random() * 4) ;
+        column = (column === newColumn)? (column + 1) % 5 : newColumn;
+        hOffset = column * width/10;
         //processData tallies the layout size while it spins
-        layoutSize = 0;
         var jsonData = processData(m);
         var bubble = d3.layout.pack()
                 .size([layoutSize, layoutSize])
@@ -78,19 +79,23 @@
         vis.enter()
                 .append("g")
                 .attr('transform', function (d) {
-                    return 'translate(' + d.x + ',' + (d.y + height) + ')';
+                    return 'translate(' + (d.x + hOffset) +',' + (d.y + height) + ')';
                 })
                 .transition("enter")
-                .duration(5000)
+                .duration(transitTime/2)
                 .attr('transform', function (d) {
-                    return 'translate(' + d.x + ',' + (d.y) + ')';
+                    return 'translate(' + (d.x + hOffset) +',' + (d.y + (height/2)) + ')';
                 })
-                .ease('linear');
+                .ease('linear')
+                .transition("callback")
+                        .duration(transitTime/2)
+                .call(function(d){console.log("Graph id " + d.uid + " is midscreen");})
+                ;
 
         // enter - only applies to incoming elements (once emptying data)	
         vis.append('circle')
                 .attr('r', function (d) {
-                    return d.r;
+                    return d.r; //the radius circle pack thinks this should be
                 })
                 .attr('class', function (d) {
                     return d.className;
@@ -104,14 +109,15 @@
                     return emojiHash(d.name);
                 })
                 .attr('width', function (d) {
-                    return d.size * 1.5;
+                    return emojiSize; //d.r * 1.5;
                 })
                 .attr('height', function (d) {
-                    return d.size * 1.5;
+                    return emojiSize; //d.r * 1.5;
                 })
                 .attr('opacity', 255)
                 .attr("transform", function (d) {
-                    return "translate(" + (-.75 * d.size) + "," + (-.755 * d.size) + ")";
+                    //return "translate(" + (-.75 * d.r) + "," + (-.75 * d.r) + ")";
+                    return "translate(" + (-.5 * emojiSize) + "," + (-.5 * emojiSize) + ")";
                 });
 
         //make an alpha mask to tint the emojis the same color as their clusters
@@ -121,20 +127,23 @@
                 }).style("fill", "white")
                 .style("opacity", 0.5)
                 .on('click', function (d) {
-                    //vis.transition("enter")
-                      //      .duration(0);
+                    //move to the right when clicked
                     vis.transition("select")
-                            .duration(1000)
+                            .duration(transitTime/10)
                             .attr("transform", function (d) {
                                 return 'translate(' + (d.x + width / 2) + ',' + d.y + ')';
                             }).ease('linear');
                 });
+//                .transition("clarify")
+//                .duration(transitTime/4)
+//                .style("opacity", 0);
 
 
-        //EXIT: Remove ald elements as needed
-        vis.exit().transition()
+        //EXIT: Remove old elements as needed
+        vis.exit()
+                .transition()
                 .attr('transform', function (d) {
-                    return 'translate(' + d.x + ',' + (d.y - height) + ')';
+                    return 'translate(' + (d.x + hOffset) + ',' + (d.y - height) + ')';
                 })
                 .ease('linear')
                 .duration(5000)
@@ -158,11 +167,12 @@
                     traverse(o[i], dataSet, i);
                 } else {
                     //only push on fields (not objects)
-                    //console.log(parentName + "." + i + " : " + o[i]);
                     var size = circleSize(o[i]);
-                    layoutSize += size;
+                    //layoutSize += size;
                     dataSet.push({name: i, className: getClassName(parentName), size: size
                         , uid: (Math.floor((1 + Math.random()) * 0x10000))});
+                    console.log(parentName + "." + i + " : " + o[i] + " = " + size);
+
                 }
             }
         }
@@ -209,7 +219,7 @@
 
     function circleSize(value) {
         var d = (isNaN(value) ? value.length : value)
-        return Math.min(maxRadius + Math.log10(d), Math.max(minRadius, d / 2));
+        return Math.ceil(Math.min(maxRadius + Math.log10(d), Math.max(minRadius, d / 2)));
     }
 
     //////////////////////other utilities
