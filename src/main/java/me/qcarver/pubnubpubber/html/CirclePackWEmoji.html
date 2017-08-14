@@ -15,13 +15,28 @@
     h1 {
         font-weight: normal;
         font-size: 2.4em;
+        text-align: center;
     }
     a {
         color: gold;
     }
+    
+    p.score {
+             font-weight: normal;
+        font-size: 2.4em;
+        text-align: center;   
+    }
+    
+    misses {
+        color: red;
+    }
+    hits {
+        color: green;
+    }
 </style>
-<div id="chart"></div>
 
+<div id="chart"></div>
+<p id="score" class="score">Score: </p>
 <!--script src="https://cdn.pubnub.com/pubnub.min.js"></script-->
 <script src=https://cdn.pubnub.com/sdk/javascript/pubnub.4.0.11.min.js></script>
 
@@ -30,16 +45,16 @@
 <script src="d3moji.js"></script>
 <script>
     var width = window.innerWidth,
-            height = window.innerHeight,
+            height = window.innerHeight *.8,
             maxRadius = 60,
+            hOffset = 0,
             setupTime = 250,
             minRadius = 5,
             duration = 1000,
-            layoutSize = (Math.min(width, height)) / 4;
-    emojiSize = layoutSize / 8;
-    transitTime = 10000;
-    column = 0;
-    hOffset = 0;
+            layoutSize = (Math.min(width, height)) / 4,
+            emojiSize = layoutSize / 8,
+            transitTime = 10000;
+
 
     // D3 Bubble Chart 
     var svg = d3.select('#chart').append('svg')
@@ -47,10 +62,8 @@
             .attr('height', height);
 
     function drawBubbles(m) {
-        newColumn = Math.floor(Math.random() * 4) ;
-        column = (column === newColumn)? (column + 1) % 5 : newColumn;
-        hOffset = column * width/10;
         //processData tallies the layout size while it spins
+        setHOffset();
         var jsonData = processData(m);
         var bubble = d3.layout.pack()
                 .size([layoutSize, layoutSize])
@@ -79,17 +92,17 @@
         vis.enter()
                 .append("g")
                 .attr('transform', function (d) {
-                    return 'translate(' + (d.x + hOffset) +',' + (d.y + height) + ')';
+                    return 'translate(' + (d.x + d.hOffset) + ',' + (d.y + height) + ')';
                 })
                 .transition("enter")
-                .duration(transitTime/2)
+                .duration(transitTime / 2)
                 .attr('transform', function (d) {
-                    return 'translate(' + (d.x + hOffset) +',' + (d.y + (height/2)) + ')';
+                    return 'translate(' + (d.x + d.hOffset) + ',' + (d.y - height / 4) + ')';
                 })
                 .ease('linear')
-                .transition("callback")
-                        .duration(transitTime/2)
-                .call(function(d){console.log("Graph id " + d.uid + " is midscreen");})
+                .transition("remove")
+                .duration(0)
+                .remove()
                 ;
 
         // enter - only applies to incoming elements (once emptying data)	
@@ -125,29 +138,54 @@
                 .attr("xlink:href", function (d) {
                     return "#circle-" + d.uid;
                 }).style("fill", "white")
-                .style("opacity", 0.5)
-                .on('click', function (d) {
-                    //move to the right when clicked
-                    vis.transition("select")
-                            .duration(transitTime/10)
-                            .attr("transform", function (d) {
-                                return 'translate(' + (d.x + width / 2) + ',' + d.y + ')';
-                            }).ease('linear');
-                });
+                .style("opacity", 0.5);
 //                .transition("clarify")
 //                .duration(transitTime/4)
 //                .style("opacity", 0);
-
-
-        //EXIT: Remove old elements as needed
-        vis.exit()
-                .transition()
-                .attr('transform', function (d) {
-                    return 'translate(' + (d.x + hOffset) + ',' + (d.y - height) + ')';
+        vis.append("circle")
+                .attr('r', function (d) {
+                    return d.r + 40; //the radius circle pack thinks this should be
                 })
-                .ease('linear')
-                .duration(5000)
-                .remove();
+                .style("fill", "white")
+                .style("opacity", 0)
+                .on('click', function (d) {
+                    //move to the right when clicked
+                    processClick();
+                    vis.transition("select")
+                            .duration(transitTime / 10)
+                            .attr("transform", function (d) {
+                                return 'translate(' + (d.x + width / 2) + ',' + d.y + ')';
+                            })
+                            .ease('linear')
+                            //below never happens
+                            .transition("remove")
+                            .duration()
+                            .remove();
+                });
+
+
+//        //EXIT: Remove old elements as needed
+//        vis.exit()
+//                .transition()
+//                .attr('transform', function (d) {
+//                    return 'translate(' + (d.x + d.hOffset) + ',' + (d.y - height) + ')';
+//                })
+//                .ease('linear')
+//                .duration(transitTime/2)
+//                .remove();
+    }
+
+    var hits = 0;
+    var misses = 0;
+
+    function processClick() {
+        console.log("click!");
+        hits++;
+        misses++;
+        document.getElementById('score').innerHTML =
+                "Score: " +
+                "<m style='color:red;'>" + misses + ": </m>" +
+                "<h style='color:green;'>" + hits + "</h>";
     }
 
     function processData(data) {
@@ -170,7 +208,8 @@
                     var size = circleSize(o[i]);
                     //layoutSize += size;
                     dataSet.push({name: i, className: getClassName(parentName), size: size
-                        , uid: (Math.floor((1 + Math.random()) * 0x10000))});
+                        , uid: (Math.floor((1 + Math.random()) * 0x10000)),
+                        hOffset: hOffset});
                     console.log(parentName + "." + i + " : " + o[i] + " = " + size);
 
                 }
@@ -222,7 +261,12 @@
         return Math.ceil(Math.min(maxRadius + Math.log10(d), Math.max(minRadius, d / 2)));
     }
 
-    //////////////////////other utilities
+    //////////////////////other utilities    
+    function setHOffset() {
+        //Rnd horizontal offset for new group that differs from last hOffset
+        hOffset = ((Math.random() * ((width / 7) * 8)) + hOffset + (width / 8)) % width;
+    }
+
 
     //hash any given string to an emoji name.. gets the icon from eg: https://twemoji.maxcdn.com/svg/1f4af.svg
     function emojiHash(hashMe) {
