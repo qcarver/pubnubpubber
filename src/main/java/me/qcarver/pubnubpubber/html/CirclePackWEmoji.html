@@ -20,13 +20,13 @@
     a {
         color: gold;
     }
-    
+
     p.score {
-             font-weight: normal;
+        font-weight: normal;
         font-size: 2.4em;
         text-align: center;   
     }
-    
+
     misses {
         color: red;
     }
@@ -45,15 +45,14 @@
 <script src="d3moji.js"></script>
 <script>
     var width = window.innerWidth,
-            height = window.innerHeight *.8,
+            height = window.innerHeight * .8,
             maxRadius = 60,
-            hOffset = 0,
+            vOffset = 0,
             setupTime = 250,
             minRadius = 5,
-            duration = 1000,
             layoutSize = (Math.min(width, height)) / 4,
             emojiSize = layoutSize / 8,
-            transitTime = 10000;
+            transitTime = 20000;
 
 
     // D3 Bubble Chart 
@@ -63,7 +62,7 @@
 
     function drawBubbles(m) {
         //processData tallies the layout size while it spins
-        setHOffset();
+        setVOffset();
         var jsonData = processData(m);
         var bubble = d3.layout.pack()
                 .size([layoutSize, layoutSize])
@@ -92,12 +91,12 @@
         vis.enter()
                 .append("g")
                 .attr('transform', function (d) {
-                    return 'translate(' + (d.x + d.hOffset) + ',' + (d.y + height) + ')';
+                    return 'translate(' + (d.x - width / 10) + ',' + (d.y + vOffset) + ')';
                 })
                 .transition("enter")
                 .duration(transitTime / 2)
                 .attr('transform', function (d) {
-                    return 'translate(' + (d.x + d.hOffset) + ',' + (d.y - height / 4) + ')';
+                    return 'translate(' + (d.x + (width * 1.1)) + ',' + (d.y + vOffset) + ')';
                 })
                 .ease('linear')
                 .transition("remove")
@@ -150,15 +149,15 @@
                 .style("opacity", 0)
                 .on('click', function (d) {
                     //move to the right when clicked
-                    processClick();
+                    processClick(true);
                     vis.transition("select")
                             .duration(transitTime / 10)
                             .attr("transform", function (d) {
                                 return 'translate(' + (d.x + width / 2) + ',' + d.y + ')';
                             })
-                            .ease('linear')
-                            //below never happens
-                            .transition("remove")
+                            .ease('linear');
+                    //below never happens
+                    transition("remove")
                             .duration()
                             .remove();
                 });
@@ -178,10 +177,10 @@
     var hits = 0;
     var misses = 0;
 
-    function processClick() {
+    function processClick(hit) {
         console.log("click!");
-        hits++;
-        misses++;
+        if (hit = true) hits++;
+        else misses++;
         document.getElementById('score').innerHTML =
                 "Score: " +
                 "<m style='color:red;'>" + misses + ": </m>" +
@@ -209,7 +208,7 @@
                     //layoutSize += size;
                     dataSet.push({name: i, className: getClassName(parentName), size: size
                         , uid: (Math.floor((1 + Math.random()) * 0x10000)),
-                        hOffset: hOffset});
+                        vOffset: vOffset});
                     console.log(parentName + "." + i + " : " + o[i] + " = " + size);
 
                 }
@@ -262,9 +261,9 @@
     }
 
     //////////////////////other utilities    
-    function setHOffset() {
-        //Rnd horizontal offset for new group that differs from last hOffset
-        hOffset = ((Math.random() * ((width / 7) * 8)) + hOffset + (width / 8)) % width;
+    function setVOffset() {
+        //Rnd vertical offset for new group that differs from last vOffset
+        vOffset = ((Math.random() * ((height / 4) * 3)) + vOffset + (height / 8)) % height;
     }
 
 
