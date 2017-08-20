@@ -1,0 +1,310 @@
+<!doctype html>
+<head>
+    <title></title>
+    <style>
+        body { margin: 0; 
+               font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", "Roboto Light", "Segoe UI Web Light", "Segoe UI Light", "Segoe UI Web Regular", "Segoe UI", Helvetica, Arial, sans-serif; 
+               margin: 1em;
+               background: #293950;
+               color: #ecf0f0;
+        }
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        rect { fill: transparent; }
+        p.score {
+            font-weight: normal;
+            font-size: 2.4em;
+            text-align: center;   
+        }
+
+        misses {
+            color: red;
+        }
+        hits {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <p id="score" class="score">Score: </p>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.min.js"></script>
+    <script src="d3moji.js"></script>  
+    <script>
+        var width = window.innerWidth,
+                height = window.innerHeight * .8,
+                maxRadius = 60,
+                vOffset = 0,
+                setupTime = 250,
+                minRadius = 5,
+                layoutSize = (Math.min(width, height)) / 4,
+                emojiSize = layoutSize / 8,
+                transitTime = 20000;
+
+        // D3 Bubble Chart 
+
+        var canvas = d3.select('body').append('canvas')
+                .attr('width', width)
+                .attr('height', height)
+                .node().getContext('2d');
+
+        var chart = d3.select('body').append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .append('g');
+
+        chart.append('rect')
+                .attr('class', 'overlay')
+                .attr('width', width)
+                .attr('height', height);
+
+
+        canvas.font = "300px Helvetica Neue";
+        canvas.textAlign = "center";
+        canvas.lineJoin = "round";
+        
+        canvas.clearRect(0, 0, width, height);
+        canvas.fillText("Hello.", width / 2, height / 2 + 100);
+        canvas.fill();
+
+        function drawCluster(m) {
+            //processData tallies the layout size while it spins
+            setVOffset();
+            var jsonData = processData(m);
+            var cluster = d3.layout.pack()
+                    .size([layoutSize, layoutSize])
+                    .value(function (d) {
+                        return d.size;
+                    }) // new data is loaded to bubble layout
+                    .padding(3);
+            console.log("bubble chart layout packed with size" + layoutSize);
+            // generate data with calculated layout values
+            var nodes = cluster.nodes(jsonData)
+                    .filter(function (d) {
+                        if (!d.children) {
+                            return !d.children;
+                        }
+                    }); // filter out the root object
+
+            //DATA JOIN: assign new data to existing DOM 
+            var vis = chart.selectAll("g")
+                    .data(nodes, function (d) {
+                        return d.uid;
+                    }).
+                    on('click', function (d) {
+                        processClick();
+                        d3.select(this).remove();
+                    }
+                    );
+
+            //UPDATE: //there is no UPDATE in this design
+
+//ENTER + UPDATE
+            vis.enter()
+                    .append("g")
+                    .attr('transform', function (d) {
+                        return 'translate(' + (d.x - width / 10) + ',' + (d.y + vOffset) + ')';
+                    })
+                    .transition("enter")
+                    .duration(transitTime / 2)
+                    .attr('transform', function (d) {
+                        return 'translate(' + (d.x + (width * 1.1)) + ',' + (d.y + vOffset) + ')';
+                    })
+                    .ease('linear')
+                    .transition("remove")
+                    .duration(0)
+                    .remove()
+                    ;
+
+            // enter - only applies to incoming elements (once emptying data)	
+            vis.append('circle')
+                    .attr('r', function (d) {
+                        return d.r; //the radius circle pack thinks this should be
+                    })
+                    .attr('class', function (d) {
+                        return d.className;
+                    })
+                    .attr("id", function (d) {
+                        return "circle-" + d.uid;
+                    });
+
+            vis.append('emoji')
+                    .attr('symbol', function (d) {
+                        return emojiHash(d.name);
+                    })
+                    .attr('width', function (d) {
+                        return emojiSize; //d.r * 1.5;
+                    })
+                    .attr('height', function (d) {
+                        return emojiSize; //d.r * 1.5;
+                    })
+                    .attr('opacity', 255)
+                    .attr("transform", function (d) {
+                        //return "translate(" + (-.75 * d.r) + "," + (-.75 * d.r) + ")";
+                        return "translate(" + (-.5 * emojiSize) + "," + (-.5 * emojiSize) + ")";
+                    });
+
+            //make an alpha mask to tint the emojis the same color as their clusters
+            vis.append("use")
+                    .attr("xlink:href", function (d) {
+                        return "#circle-" + d.uid;
+                    }).style("fill", "white")
+                    .style("opacity", 0.5);
+            //                .transition("clarify")
+            //                .duration(transitTime/4)
+            //                .style("opacity", 0);
+
+            //this is the clickable region, transparent and bigger than the object
+            vis.append("circle")
+                    .attr('r', function (d) {
+                        return d.r + 60; // bigger than radius of visible objects
+                    })
+                    .style("fill", "white")
+                    .style("opacity", 0).on('click', function (d) { //TO SAVE MY LIFE I CAN'T FIGURE OUT HOW TO REMOVE THESE AFTER CLICK... WORKAROUND IS TO HIDE THEM OFF-SCREEN -- DATA WILL REALLY PILE UP THOUGH!!!
+                //move to the right when clicked
+                processClick(true);
+                vis.transition("select")
+                        .duration(0)
+                        .attr("transform", function (d) {
+                            return 'translate(' + (d.x - width / 2) + ',' + (d.y - height / 2) + ')';
+                        })
+                        .remove();
+                //below never happens
+                //                    .transition("remove")
+                //                            .duration()
+                //                            .remove();
+            });
+        }
+
+        var hits = 0;
+        var misses = 0;
+
+        function processClick(hit) {
+            console.log("click!");
+            if (hit = true)
+                hits++;
+            else
+                misses++;
+            document.getElementById('score').innerHTML =
+                    "Score: " +
+                    "<m style='color:red;'>" + misses + ": </m>" +
+                    "<h style='color:green;'>" + hits + "</h>";
+            //adds to the dom.. but never becomes visible
+            d3.selectAll("#chart")
+                    .append("svg:image")
+                    .attr("xlink:href", "http://www.e-pint.com/epint.jpg")
+                    .attr("width", 150).attr("height", 200);
+            //document.getElementById('bg_graphic').innerHTML = "<circle cx='50' cy='50' r='50' stroke='green' stroke-width='4' fill='yellow' opacity='1' class='root'></circle>";
+        }
+
+        function processData(data) {
+            if (!data)
+                return;
+            var dataSet = [];
+            var obj = JSON.parse(data);
+            traverse(obj, dataSet, "root");
+            return {children: dataSet};
+        }
+
+        function traverse(o, dataSet, parentName) {
+            for (var i in o) {
+                if (o[i] !== null) {
+                    if (typeof (o[i]) === "object") {
+                        //going one step down in the object tree!!
+                        traverse(o[i], dataSet, i);
+                    } else {
+                        //only push on fields (not objects)
+                        var size = circleSize(o[i]);
+                        //layoutSize += size;
+                        dataSet.push({name: i, className: getClassName(parentName), size: size
+                            , uid: (Math.floor((1 + Math.random()) * 0x10000)),
+                            vOffset: vOffset, clicked: false});
+                        console.log(parentName + "." + i + " : " + o[i] + " = " + size);
+
+                    }
+                }
+            }
+        }
+
+        function getClassName(name) {
+            if (document.getElementsByClassName(name).length === 0) {
+                var style = document.createElement('style');
+                style.type = 'text/css';
+                style.innerHTML = '.' + name + ' { fill: #' + getHashColor(name) + '; background: #F495A3; }';
+                document.getElementsByTagName('head')[0].appendChild(style);
+            }
+            return name;
+        }
+
+
+        function getHashColor(name) {
+            var hash = 0, i, chr;
+            if (name.length === 0)
+                return hash;
+            for (i = 0; i < name.length; i++) {
+                chr = name.charCodeAt(i);
+                //try and distribute the char a-z or A-Z to a # between 0&255
+                chr = (chr < 97) ? chr - 64 : chr - 70;
+                chr += (52 * (chr % 5)) + i % 5;
+                //shift determines which of the 3 bytes we want to update
+                var shift = (name.length > 2) ? (i % 3) : (chr % 3);
+                //update the byte by adding to it
+                hash += ((chr | (hash & 0xFF)) << 8 * shift);
+            }
+            //we used addition so.. number might exceed 3 bytes now, mask it
+            hash &= 0xFFFFFF;
+            //this gets our number to a six character hex representation of hash
+            var pad = "000000";
+            return pad.substring(0, pad.length - hash.toString(16).length) + hash.toString(16);
+        }
+
+        function circleSize(value) {
+            var d = (isNaN(value) ? value.length : value)
+            return Math.ceil(Math.min(maxRadius + Math.log10(d), Math.max(minRadius, d / 2)));
+        }
+
+        //////////////////////other utilities    
+        function setVOffset() {
+            //Rnd vertical offset for new group that differs from last vOffset
+            vOffset = ((Math.random() * ((height / 4) * 3)) + vOffset + (height / 8)) % height;
+        }
+
+
+        //hash any given string to an emoji name.. gets the icon from eg: https://twemoji.maxcdn.com/svg/1f4af.svg
+        function emojiHash(hashMe) {
+            return Object.keys(emojiMap)[Math.abs(hashMe.hashCode()) % Object.keys(emojiMap).length];
+        }
+
+        //add a function to the native String type to emulate java's hashCode()
+        String.prototype.hashCode = function () {
+            var hash = 0;
+            if (this.length === 0)
+                return hash;
+            for (var i = 0; i < this.length; i++) {
+                var character = this.charCodeAt(i);
+                hash = ((hash << 5) - hash) + character;
+                hash = hash & hash; // Convert to 32bit integer
+            }
+            return hash;
+        };
+
+        var request = new XMLHttpRequest();
+        request.open("GET", "MOCK_DATA.json", false);
+        request.send(null);
+        var JSON_object = JSON.parse(request.responseText);
+        var test_data = [];
+        test_data = JSON_object.test_data;
+        test_data.forEach(function (td, index) {
+            setTimeout(function () {
+                objAsString = JSON.stringify(td);
+                drawCluster(objAsString);
+                console.log("sending " + objAsString + " in " + index * 2000 + " ms");
+            },
+                    index * 2000);
+        }
+        );
+
+    </script>
+</body>
