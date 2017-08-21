@@ -50,6 +50,16 @@
                 .attr('height', height)
                 .node().getContext('2d');
 
+        var art = d3.select('body').append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .append('g');
+
+        art.append('rect')
+                .attr('class', 'overlay')
+                .attr('width', width)
+                .attr('height', height);
+
         var chart = d3.select('body').append('svg')
                 .attr('width', width)
                 .attr('height', height)
@@ -60,11 +70,14 @@
                 .attr('width', width)
                 .attr('height', height);
 
+        d3.select("body").append("svg").attr("width", 50).attr("height", 50).append("circle").attr("cx", 25).attr("cy", 25).attr("r", 25).style("fill", "purple");
+
+        var g = art.append("g");
 
         canvas.font = "300px Helvetica Neue";
         canvas.textAlign = "center";
         canvas.lineJoin = "round";
-        
+
         canvas.clearRect(0, 0, width, height);
         canvas.fillText("Hello.", width / 2, height / 2 + 100);
         canvas.fill();
@@ -183,20 +196,40 @@
 
         function processClick(hit) {
             console.log("click!");
-            if (hit = true)
+            if (hit == true) {
+                        g.append("svg:image")
+                        //.attr("xlink:href", "http://www.clker.com/cliparts/1/4/5/a/1331068897296558865Sitting%20Racoon.svg")
+                        .attr("xlink:href", "Green_check.svg")
+                        .attr("id", "feedback-1")
+                        .attr("width", height / 2)
+                        .attr("height", height / 2)
+                        .attr("x", width / 4)
+                        .attr("y", height / 4);
                 hits++;
-            else
+            } else {
+                        g.append("svg:image")
+                        .attr("xlink:href", "Red_x.svg")
+                        .attr("id", "feedback-1")
+                        .attr("width", height / 2)
+                        .attr("height", height / 2)
+                        .attr("x", width / 4)
+                        .attr("y", height / 4);
                 misses++;
+            }
+            setTimeout(function () {
+                d3.select("#feedback-1").remove();
+            }, 100);
+            
             document.getElementById('score').innerHTML =
                     "Score: " +
                     "<m style='color:red;'>" + misses + ": </m>" +
                     "<h style='color:green;'>" + hits + "</h>";
-            //adds to the dom.. but never becomes visible
-            d3.selectAll("#chart")
-                    .append("svg:image")
-                    .attr("xlink:href", "http://www.e-pint.com/epint.jpg")
-                    .attr("width", 150).attr("height", 200);
-            //document.getElementById('bg_graphic').innerHTML = "<circle cx='50' cy='50' r='50' stroke='green' stroke-width='4' fill='yellow' opacity='1' class='root'></circle>";
+            //the canvas way....
+
+//        d3.select("body").append("svg").attr("width", 50).attr("height", 50).append("circle").attr("cx", 25).attr("cy", 25).attr("r", 25).style("fill", "purple");
+
+
+
         }
 
         function processData(data) {
